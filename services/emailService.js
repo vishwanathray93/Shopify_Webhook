@@ -1,51 +1,43 @@
-const nodemailer = require("nodemailer");
-
-const orderTemplate = require("../templates/orderCreatedTemplate");
-const cancelTemplate = require("../templates/orderCancelledTemplate");
+const axios = require("axios");
 const refundTemplate = require("../templates/refundTemplate");
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-exports.sendOrderCreatedEmail = async (order, recommended) => {
-
-  const html = orderTemplate(order, recommended);
-
-  await transporter.sendMail({
-    from: `"Store" <${process.env.SMTP_USER}>`,
-    to: order.email,
-    subject: `Order Confirmation #${order.id}`,
-    html,
-  });
-};
-
-exports.sendOrderCancelledEmail = async (order) => {
-
-  const html = cancelTemplate(order);
-
-  await transporter.sendMail({
-    from: `"Store" <${process.env.SMTP_USER}>`,
-    to: order.email,
-    subject: `Order Cancelled #${order.id}`,
-    html,
-  });
-};
 
 exports.sendRefundEmail = async (refund) => {
 
-  const html = refundTemplate(refund);
+  try {
 
-  await transporter.sendMail({
-    from: `"Store" <${process.env.SMTP_USER}>`,
-    to: refund.order.email,
-    subject: `Refund Processed`,
-    html,
-  });
+    const orderId = refund.order_id;
+
+    // fetch order from Shopify
+    const response = await axios.get(
+      `https://${process.env.SHOPIFY_STORE}/admin/api/2024-01/orders/${orderId}.json`,
+      {
+        headers: {
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const order = response.data.order;
+
+    const html = refundTemplate({
+      ...refund,
+      order
+    });
+
+    await transporter.sendMail({
+      from: `"Store" <${process.env.SMTP_USER}>`,
+      to: order.email,
+      subject: `Refund Processed for Order #${order.name}`,
+      html
+    });
+
+    console.log("Refund email sent to:", order.email);
+
+  } catch (error) {
+
+    console.error("Refund email error:", error.response?.data || error.message);
+
+  }
+
 };

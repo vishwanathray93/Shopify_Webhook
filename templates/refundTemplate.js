@@ -1,38 +1,51 @@
 module.exports = (refund) => {
 
-const order = refund.order;
+  const order = refund.order || {};
+  let productHTML = "";
+  let totalRefund = 0;
 
-let productHTML = "";
-let totalRefund = 0;
+  // Handle refunded products safely
+  if (refund.refund_line_items && refund.refund_line_items.length > 0) {
 
-order.line_items.forEach((item) => {
+    refund.refund_line_items.forEach((item) => {
 
-productHTML += `
-<tr>
-<td style="padding:10px;border-bottom:1px solid #eee;">
-${item.title}
-</td>
+      const product = item.line_item || {};
 
-<td style="padding:10px;border-bottom:1px solid #eee;text-align:center;">
-${item.quantity}
-</td>
+      productHTML += `
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #eee;">
+            ${product.title || "Product"}
+          </td>
 
-<td style="padding:10px;border-bottom:1px solid #eee;text-align:right;">
-$${item.price}
-</td>
-</tr>
-`;
+          <td style="padding:10px;border-bottom:1px solid #eee;text-align:center;">
+            ${item.quantity || 1}
+          </td>
 
-});
+          <td style="padding:10px;border-bottom:1px solid #eee;text-align:right;">
+            $${product.price || "0.00"}
+          </td>
+        </tr>
+      `;
+    });
 
-refund.transactions?.forEach((t)=>{
-if(t.kind === "refund"){
-totalRefund += parseFloat(t.amount);
-}
-});
+  } else {
+    productHTML = `
+      <tr>
+        <td colspan="3" style="padding:10px;text-align:center;">
+          Refund processed
+        </td>
+      </tr>
+    `;
+  }
 
-return `
+  // Calculate refund amount
+  refund.transactions?.forEach((t) => {
+    if (t.kind === "refund") {
+      totalRefund += parseFloat(t.amount);
+    }
+  });
 
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -51,7 +64,7 @@ return `
 
 <p>Hello ${order.customer?.first_name || "Customer"},</p>
 
-<p>Your refund for order <b>#${order.id}</b> has been processed.</p>
+<p>Your refund has been processed.</p>
 
 <h3>Refund Details</h3>
 
@@ -69,7 +82,7 @@ ${productHTML}
 
 <br>
 
-<p><b>Total Refunded:</b> $${totalRefund}</p>
+<p><b>Total Refunded:</b> $${totalRefund.toFixed(2)}</p>
 
 <p>The refund may take 5-7 business days to appear in your account.</p>
 
@@ -84,7 +97,6 @@ ${productHTML}
 
 </body>
 </html>
-
 `;
 
 };
